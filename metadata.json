@@ -1,0 +1,8 @@
+{
+  "name": "AHMETOĞLU PROJE YÖNETİMİ",
+  "description": "A comprehensive construction project management dashboard enhanced with Gemini AI for daily reporting, safety risk analysis, and resource estimation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
