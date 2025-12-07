@@ -15,14 +15,10 @@ import { AISiteManager } from './components/AISiteManager';
 import { AIChatOverlay } from './components/AIChatOverlay';
 import { GanttSchedule } from './components/GanttSchedule';
 import { Teams } from './components/Teams';
-import { Login } from './components/Login';
-import { auth } from './services/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Toast } from './components/ui/Toast';
-import { getProjects, addProject, deleteProject } from './services/firestoreService';
 import { Project, ProjectStatus, TaskPriority, Task, PaymentRecord, InventoryItem, PunchItem, DailyReport, Subcontractor, Contract, Tender, TeamMember, UserRole, ProjectDocument } from './types';
 
-// Mock Data (Fallback)
+// Mock Data
 const MOCK_PROJECTS: Project[] = [
   {
     id: '1',
@@ -60,18 +56,18 @@ const MOCK_PROJECTS: Project[] = [
   }
 ];
 
-// ... (Other Mocks would be here, truncated for brevity, assume populated)
-// Re-using the previously defined mocks for initial state in demo mode
-const MOCK_SUBCONTRACTORS: Subcontractor[] = []; 
+const MOCK_SUBCONTRACTORS: Subcontractor[] = [
+    { id: '1', name: 'Akım Elektrik Ltd.', taxId: '1234567890', trade: 'Elektrik', phone: '0532 555 0011', email: 'info@akimelektrik.com', rating: 9.2, contactPerson: 'Mehmet Bey', avatarUrl: '' },
+    { id: '2', name: 'BetonSA Hazır Beton', taxId: '9876543210', trade: 'Kaba Yapı', phone: '0212 444 0022', email: 'satis@betonsa.com', rating: 8.5, contactPerson: 'Ayşe Hanım', avatarUrl: '' }
+]; 
 const MOCK_CONTRACTS: Contract[] = [];
 const MOCK_TENDERS: Tender[] = [];
-const MOCK_TEAM: TeamMember[] = [];
+const MOCK_TEAM: TeamMember[] = [
+    { id: '1', name: 'Ali Veli', role: 'Saha Şefi', phone: '0555 111 2233', email: 'ali@sirket.com', status: 'Sahada', skills: ['Betonarme', 'İSG'], avatarUrl: '' },
+    { id: '2', name: 'Zeynep Yılmaz', role: 'Mimar', phone: '0555 444 5566', email: 'zeynep@sirket.com', status: 'Ofiste', skills: ['AutoCAD', 'Revit'], avatarUrl: '' }
+];
 
 const App: React.FC = () => {
-  // Auth State
-  const [user, setUser] = useState<any>(null);
-  const [isDemo, setIsDemo] = useState(false);
-  
   // App State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userRole, setUserRole] = useState<UserRole>('Proje Müdürü');
@@ -79,10 +75,7 @@ const App: React.FC = () => {
   
   // -- GLOBAL STATE MANAGEMENT --
   
-  // Projects
-  const [projects, setProjects] = useState<Project[]>([]); // Start empty
-
-  // Other Data States (Mock for now in mixed mode, but prepared for DB)
+  const [projects, setProjects] = useState<Project[]>([]);
   const [paymentData, setPaymentData] = useState<PaymentRecord[]>([]);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -92,97 +85,34 @@ const App: React.FC = () => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [reportHistory, setReportHistory] = useState<DailyReport[]>([]);
 
-  // Auth Listener & Data Fetching
+  // Initialize Data
   useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        setIsDemo(false);
-        try {
-          // Real Data Fetch
-          const dbProjects = await getProjects();
-          setProjects(dbProjects.length > 0 ? dbProjects : []); // If empty DB, start empty
-          showToast("Veriler başarıyla yüklendi", 'success');
-        } catch (error) {
-          console.error("Data load error:", error);
-          // Fallback to empty or show error
-          setProjects([]);
-          showToast("Veri yükleme hatası. Demo moduna geçiliyor.", 'error');
-        }
-      } else {
-        // Logged out
-        setProjects([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Initialize Demo Data
-  useEffect(() => {
-    if (isDemo) {
       setProjects(MOCK_PROJECTS);
-      // Initialize other mocks...
       setSubcontractors(MOCK_SUBCONTRACTORS);
       setContracts(MOCK_CONTRACTS);
       setTenders(MOCK_TENDERS);
       setTeamMembers(MOCK_TEAM);
-      showToast("Demo modu aktif", 'success');
-    }
-  }, [isDemo]);
-
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-    }
-    setUser(null);
-    setIsDemo(false);
-    setProjects([]);
-  };
+      showToast("Sistem hazır", 'success');
+  }, []);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
   };
 
-  // -- HANDLERS (Hybrid: Check isDemo to decide between DB or Local State) --
+  // -- HANDLERS --
 
   // Projects
   const handleAddProject = async (newProject: Project) => {
-    try {
-      if (!isDemo && user) {
-        // Firestore Add
-        const { id, ...data } = newProject; // Remove ID to let DB generate it
-        const added = await addProject(data);
-        setProjects(prev => [...prev, added]);
-        showToast("Proje veritabanına eklendi", 'success');
-      } else {
-        // Local State Add
-        setProjects(prev => [...prev, newProject]);
-        showToast("Proje eklendi (Demo)", 'success');
-      }
-    } catch (e) {
-      showToast("Proje eklenirken hata oluştu", 'error');
-    }
+    setProjects(prev => [...prev, newProject]);
+    showToast("Proje eklendi", 'success');
   };
 
   const handleDeleteProject = async (id: string) => {
-    try {
-      if (!isDemo && user) {
-        await deleteProject(id);
-        setProjects(prev => prev.filter(p => p.id !== id));
-        showToast("Proje silindi", 'success');
-      } else {
-        setProjects(prev => prev.filter(p => p.id !== id));
-        showToast("Proje silindi (Demo)", 'success');
-      }
-    } catch (e) {
-      showToast("Silme işlemi başarısız", 'error');
-    }
+    setProjects(prev => prev.filter(p => p.id !== id));
+    showToast("Proje silindi", 'success');
   };
 
   const handleTaskUpdate = (projectId: string, taskId: string, updates: Partial<Task>) => {
-    // Note: Deep updates in Firestore require specific doc structure or huge bandwidth. 
-    // For this prototype, we update local state mostly, but a real app would update the specific doc.
     setProjects(prevProjects => prevProjects.map(project => {
       if (project.id !== projectId) return project;
       const updatedTasks = project.tasks?.map(task => 
@@ -224,7 +154,6 @@ const App: React.FC = () => {
   // Financials
   const handleAddPayment = (newRecord: PaymentRecord) => {
     setPaymentData(prev => [...prev, newRecord]);
-    // Logic to update project spent...
     showToast("Hakediş kaydedildi", 'success');
   };
 
@@ -282,11 +211,6 @@ const App: React.FC = () => {
   const handleSaveReport = (report: DailyReport) => setReportHistory(prev => [report, ...prev]);
   const handleDeleteReport = (id: string) => setReportHistory(prev => prev.filter(r => r.id !== id));
 
-  // -- RENDER GATE --
-  if (!user && !isDemo) {
-    return <Login onLoginSuccess={setUser} onDemoMode={() => setIsDemo(true)} />;
-  }
-
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -322,7 +246,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
       <main className="flex-1 h-full overflow-hidden relative flex flex-col">
@@ -338,9 +262,9 @@ const App: React.FC = () => {
               <option value="Saha Mühendisi">Saha Mühendisi (İzleyici)</option>
            </select>
            
-           <div className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-2 ${isDemo ? 'bg-indigo-500' : 'bg-green-600'}`}>
+           <div className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-2 bg-green-600`}>
               <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-              {isDemo ? 'DEMO MODU' : 'CANLI SİSTEM'}
+              CANLI SİSTEM
            </div>
         </div>
 
